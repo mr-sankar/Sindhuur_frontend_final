@@ -6,7 +6,7 @@ export default function ResponsiveLayout() {
       {/* Header */}
       <header className="w-full bg-white shadow p-4 sm:p-6 lg:px-12">
         <div className="max-w-screen-xl mx-auto flex flex-wrap items-center justify-between gap-4">
-          <h1 className="text-2xl font-bold whitespace-nowrap">Public Matrimony</h1>
+          <h1 className="text-2xl font-bold whitespace-nowrap">Sindhuura</h1>
           <nav className="w-full sm:w-auto">
             <ul className="flex flex-wrap justify-center sm:justify-end gap-3 text-sm sm:text-base">
               <li><a href="#" className="hover:text-blue-600">Home</a></li>
@@ -38,7 +38,7 @@ export default function ResponsiveLayout() {
       {/* Footer */}
       <footer className="bg-white shadow-inner py-4 px-4 sm:px-6 lg:px-12 mt-8">
         <div className="text-center text-xs sm:text-sm text-gray-500">
-          &copy; {new Date().getFullYear()} Public Matrimony. All rights reserved.
+          &copy; {new Date().getFullYear()} Sindhuura. All rights reserved.
         </div>
       </footer>
     </div>

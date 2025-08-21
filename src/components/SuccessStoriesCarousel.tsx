@@ -9,7 +9,7 @@ const SuccessStoriesCarousel = () => {
       id: 1,
       names: "Priya & Suresh",
       image: "https://images.unsplash.com/photo-1649972904349-6e44c42644a7?ixlib=rb-4.0.3",
-      story: "We found each other through Public Matrimony and got married in a beautiful traditional ceremony. Thank you for helping us find our perfect match!",
+      story: "We found each other through Sindhuura and got married in a beautiful traditional ceremony. Thank you for helping us find our perfect match!",
       location: "Bangalore"
     },
     {
@@ -23,7 +23,7 @@ const SuccessStoriesCarousel = () => {
       id: 3,
       names: "Lakshmi & Naveen",
       image: "https://images.unsplash.com/photo-1500673922987-e212871fec22?ixlib=rb-4.0.3",
-      story: "Public Matrimony helped us find our soulmates. We're grateful for this wonderful platform that brought us together.",
+      story: "Sindhuura helped us find our soulmates. We're grateful for this wonderful platform that brought us together.",
       location: "Delhi"
     }
   ];
@@ -36,7 +36,7 @@ const SuccessStoriesCarousel = () => {
             Success Stories
           </h2>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Real couples who found their perfect match through Public Matrimony
+            Real couples who found their perfect match through Sindhuura
           </p>
         </div>
 

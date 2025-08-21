@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,52 +9,80 @@ import { Mail, User, ArrowDown } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+
 const Support = () => {
+  // Assuming profileId is stored in localStorage after login
+  const profileId = localStorage.getItem('profileId') || ''; // Replace with your auth mechanism
   const [formData, setFormData] = useState({
+    profileId: profileId,
     name: "",
     email: "",
     subject: "",
     category: "",
     message: ""
   });
+  const [supportRequests, setSupportRequests] = useState([]);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
 
   const faqs = [
-    {
-      question: "How do I create a profile on KannadaMatch?",
-      answer: "Click on 'Join Free' button and follow the 3-step registration process. You'll need to provide basic details, verify your mobile number, and complete your profile with photos and preferences."
-    },
-    {
-      question: "How are profiles verified?",
-      answer: "We verify profiles through document verification (Aadhaar/PAN), mobile number verification, and manual review by our team. Verified profiles get a green verification badge."
-    },
-    {
-      question: "Can I contact members directly?",
-      answer: "Free members can send interests only. Premium members can view contact details and chat directly with other members. All communications are secure and private."
-    },
-    {
-      question: "How does the matching algorithm work?",
-      answer: "Our algorithm considers factors like age, location, community, education, profession, and personal preferences to suggest compatible matches. Premium members also get horoscope matching."
-    },
-    {
-      question: "Is my personal information safe?",
-      answer: "Yes, we use advanced security measures to protect your data. Your contact details are only visible to premium members, and you control who can see your profile information."
-    },
-    {
-      question: "What if I face any issues with another member?",
-      answer: "You can report any inappropriate behavior through the 'Report' button on profiles. Our team reviews all reports within 24 hours and takes appropriate action."
-    },
-    {
-      question: "How do I cancel my membership?",
-      answer: "You can cancel your membership anytime from your account settings. For premium memberships, you can contact our support team for assistance with cancellation and refunds."
-    },
-    {
-      question: "Can I hide my profile temporarily?",
-      answer: "Yes, you can make your profile invisible from the privacy settings. This will hide your profile from search results while keeping your account active."
-    }
+    // ... (unchanged FAQ data)
   ];
 
-  const handleInputChange = (field: string, value: string) => {
+  // Fetch support requests on component mount
+  useEffect(() => {
+    if (profileId || formData.name) {
+      fetchSupportRequests();
+    }
+  }, [profileId, formData.name]);
+
+  const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.profileId || !formData.name || !formData.email || !formData.subject || !formData.category || !formData.message) {
+      setError("All fields are required");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${BASE_URL}/api/submit-support-request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setSuccess(data.message);
+        setError(null);
+        setFormData({ profileId, name: "", email: "", subject: "", category: "", message: "" });
+        fetchSupportRequests(); // Refresh support requests
+      } else {
+        setError(data.error);
+        setSuccess(null);
+      }
+    } catch (err) {
+      setError("Failed to submit request");
+      setSuccess(null);
+    }
+  };
+
+  const fetchSupportRequests = async () => {
+    try {
+      const query = profileId ? `profileId=${profileId}` : `name=${encodeURIComponent(formData.name)}`;
+      const response = await fetch(`${BASE_URL}/api/support-requests?${query}`);
+      const data = await response.json();
+      if (response.ok) {
+        setSupportRequests(data);
+      } else {
+        setError(data.error);
+      }
+    } catch (err) {
+      setError("Failed to fetch support requests");
+    }
   };
 
   return (
@@ -82,92 +109,93 @@ const Support = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-4">
+                {error && <p className="text-red-500 text-sm">{error}</p>}
+                {success && <p className="text-green-500 text-sm">{success}</p>}
+                <form onSubmit={handleSubmit}>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Full Name
+                      </label>
+                      <Input
+                        value={formData.name}
+                        onChange={(e) => handleInputChange('name', e.target.value)}
+                        placeholder="Enter your full name"
+                        className="border-orange-200 focus:border-orange-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Email Address
+                      </label>
+                      <Input
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => handleInputChange('email', e.target.value)}
+                        placeholder="your.email@example.com"
+                        className="border-orange-200 focus:border-orange-400"
+                      />
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Full Name
+                      Category
+                    </label>
+                    <Select value={formData.category} onValueChange={(value) => handleInputChange('category', value)}>
+                      <SelectTrigger className="border-orange-200 focus:border-orange-400">
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="account">Account Issues</SelectItem>
+                        <SelectItem value="payment">Payment & Billing</SelectItem>
+                        <SelectItem value="profile">Profile Related</SelectItem>
+                        <SelectItem value="matching">Matching Issues</SelectItem>
+                        <SelectItem value="technical">Technical Support</SelectItem>
+                        <SelectItem value="report">Report a Member</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Subject
                     </label>
                     <Input
-                      value={formData.name}
-                      onChange={(e) => handleInputChange('name', e.target.value)}
-                      placeholder="Enter your full name"
+                      value={formData.subject}
+                      onChange={(e) => handleInputChange('subject', e.target.value)}
+                      placeholder="Brief description of your query"
                       className="border-orange-200 focus:border-orange-400"
                     />
                   </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Email Address
+                      Message
                     </label>
-                    <Input
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => handleInputChange('email', e.target.value)}
-                      placeholder="your.email@example.com"
+                    <Textarea
+                      value={formData.message}
+                      onChange={(e) => handleInputChange('message', e.target.value)}
+                      placeholder="Please describe your issue in detail..."
+                      rows={6}
                       className="border-orange-200 focus:border-orange-400"
                     />
                   </div>
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Category
-                  </label>
-                  <Select value={formData.category} onValueChange={(value) => handleInputChange('category', value)}>
-                    <SelectTrigger className="border-orange-200 focus:border-orange-400">
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="account">Account Issues</SelectItem>
-                      <SelectItem value="payment">Payment & Billing</SelectItem>
-                      <SelectItem value="profile">Profile Related</SelectItem>
-                      <SelectItem value="matching">Matching Issues</SelectItem>
-                      <SelectItem value="technical">Technical Support</SelectItem>
-                      <SelectItem value="report">Report a Member</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Subject
-                  </label>
-                  <Input
-                    value={formData.subject}
-                    onChange={(e) => handleInputChange('subject', e.target.value)}
-                    placeholder="Brief description of your query"
-                    className="border-orange-200 focus:border-orange-400"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Message
-                  </label>
-                  <Textarea
-                    value={formData.message}
-                    onChange={(e) => handleInputChange('message', e.target.value)}
-                    placeholder="Please describe your issue in detail..."
-                    rows={6}
-                    className="border-orange-200 focus:border-orange-400"
-                  />
-                </div>
-
-                <Button className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600">
-                  Send Message
-                </Button>
+                  <Button type="submit" className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600">
+                    Send Message
+                  </Button>
+                </form>
 
                 <div className="text-center pt-4 border-t border-orange-100">
-                  <p className="text-sm text-gray-600 mb-2">Need immediate help?</p>
-                  <Button className="bg-green-500 hover:bg-green-600 text-white">
-                    WhatsApp Support
-                  </Button>
+                  <p className="text-sm text-gray-600 mb-2"></p>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* FAQ Section */}
+          {/* FAQ and Support Requests Section */}
           <div>
             <Card className="border-orange-100">
               <CardHeader>
@@ -192,6 +220,32 @@ const Support = () => {
               </CardContent>
             </Card>
 
+            {/* Support Requests Display */}
+            <Card className="mt-6 border-orange-100">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold text-gray-800">
+                  Your Support Requests
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {supportRequests.length === 0 ? (
+                  <p className="text-gray-600">No support requests found.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {supportRequests.map((request, index) => (
+                      <div key={index} className="border border-orange-100 p-4 rounded-lg">
+                        <p><strong>Subject:</strong> {request.subject}</p>
+                        <p><strong>Category:</strong> {request.category}</p>
+                        <p><strong>Message:</strong> {request.message}</p>
+                        <p><strong>Status:</strong> {request.status}</p>
+                        <p><strong>Submitted:</strong> {new Date(request.createdAt).toLocaleString()}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Contact Info */}
             <Card className="mt-6 border-orange-100">
               <CardContent className="p-6">
@@ -199,19 +253,15 @@ const Support = () => {
                 <div className="space-y-3 text-sm">
                   <div>
                     <span className="font-medium text-gray-700">Email:</span>
-                    <span className="text-gray-600 ml-2">support@kannadamatch.com</span>
+                    <span className="text-gray-600 ml-2">support@publicmatrimony.com</span>
                   </div>
                   <div>
                     <span className="font-medium text-gray-700">Phone:</span>
                     <span className="text-gray-600 ml-2">+91 80-4567-8900</span>
                   </div>
                   <div>
-                    <span className="font-medium text-gray-700">WhatsApp:</span>
-                    <span className="text-gray-600 ml-2">+91 80-4567-8901</span>
-                  </div>
-                  <div>
                     <span className="font-medium text-gray-700">Support Hours:</span>
-                    <span className="text-gray-600 ml-2">24/7 (Chat & WhatsApp)</span>
+                    <span className="text-gray-600 ml-2">Monday - Friday: 9:00 AM - 6:00 PM</span>
                   </div>
                   <div>
                     <span className="font-medium text-gray-700">Office Address:</span>

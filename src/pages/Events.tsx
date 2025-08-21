@@ -1,126 +1,291 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, MapPin, Users, Clock, Heart, Star } from "lucide-react";
+import { Calendar, MapPin, Users, Clock, Star } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useToast } from "@/hooks/use-toast";
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 const Events = () => {
-  const [registeredEvents, setRegisteredEvents] = useState<number[]>([]);
+  const [events, setEvents] = useState([]);
+  const [registeredEvents, setRegisteredEvents] = useState([]);
+  const [subscription, setSubscription] = useState("free");
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [openSuccessDialog, setOpenSuccessDialog] = useState(null); // Renamed for clarity
+  const [openCancelDialog, setOpenCancelDialog] = useState(null); // New: For cancellation popup
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filteredEvents, setFilteredEvents] = useState([]);
+  const [selectedEvent, setSelectedEvent] = useState(null);
   const { toast } = useToast();
 
-  const events = [
-    {
-      id: 1,
-      title: "Meet & Greet Coffee Evening",
-      description: "An intimate evening to meet like-minded individuals over coffee and light refreshments.",
-      date: "2024-02-15",
-      time: "6:00 PM - 8:00 PM",
-      location: "Café Central, Mumbai",
-      attendees: 25,
-      maxAttendees: 30,
-      category: "social",
-      featured: true,
-      image: "https://images.unsplash.com/photo-1511920170033-f8396924c348?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-    },
-    {
-      id: 2,
-      title: "Traditional Dance Workshop",
-      description: "Learn classical Indian dance forms and connect with others who share your passion for culture.",
-      date: "2024-02-18",
-      time: "4:00 PM - 7:00 PM",
-      location: "Cultural Center, Delhi",
-      attendees: 18,
-      maxAttendees: 20,
-      category: "cultural",
-      featured: false,
-      image: "https://images.unsplash.com/photo-1594736797933-d0401ba2fe65?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-    },
-    {
-      id: 3,
-      title: "Speed Dating Event",
-      description: "Meet multiple potential matches in a fun, organized setting with structured conversations.",
-      date: "2024-02-20",
-      time: "7:00 PM - 10:00 PM",
-      location: "Hotel Regency, Bangalore",
-      attendees: 45,
-      maxAttendees: 50,
-      category: "dating",
-      featured: true,
-      image: "https://images.unsplash.com/photo-1511632765486-a01980e01a18?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-    },
-    {
-      id: 4,
-      title: "Cooking Class & Dinner",
-      description: "Learn to cook traditional recipes together and enjoy a group dinner.",
-      date: "2024-02-25",
-      time: "5:00 PM - 9:00 PM",
-      location: "Culinary Institute, Chennai",
-      attendees: 12,
-      maxAttendees: 16,
-      category: "lifestyle",
-      featured: false,
-      image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-    },
-    {
-      id: 5,
-      title: "Outdoor Adventure Trek",
-      description: "Join us for a day trek and team building activities in the beautiful Western Ghats.",
-      date: "2024-03-02",
-      time: "6:00 AM - 6:00 PM",
-      location: "Lonavala Hills, Maharashtra",
-      attendees: 28,
-      maxAttendees: 35,
-      category: "adventure",
-      featured: false,
-      image: "https://images.unsplash.com/photo-1551632811-561732d1e306?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-    }
-  ];
+  const navigate = useNavigate();
 
-  const handleRegister = (eventId: number) => {
-    if (registeredEvents.includes(eventId)) {
-      setRegisteredEvents(prev => prev.filter(id => id !== eventId));
+  axios.defaults.baseURL = "http://localhost:5000";
+
+  const fetchEventDetails = async (eventId) => {
+    try {
+      const res = await axios.get(`/api/events/${eventId}/details`);
+      setSelectedEvent(res.data);
+    } catch {
       toast({
-        title: "Registration Cancelled",
-        description: "You have successfully cancelled your registration.",
+        title: "Error",
+        description: "Could not load event details.",
+        variant: "destructive",
       });
+    }
+  };
+
+  useEffect(() => {
+    if (searchQuery.trim() === "") {
+      setFilteredEvents(events);
     } else {
-      setRegisteredEvents(prev => [...prev, eventId]);
+      setFilteredEvents(
+        events.filter((e) =>
+          e.title.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      );
+    }
+  }, [searchQuery, events]);
+
+  useEffect(() => {
+    const fetchSubscriptionStatus = async () => {
+      try {
+        const userProfile = localStorage.getItem("loggedInUser");
+        const userProfileId = userProfile
+          ? JSON.parse(userProfile).profileId
+          : "anonymous";
+        if (userProfileId === "anonymous") {
+          setSubscription("free");
+          return;
+        }
+
+        const response = await axios.get(
+          `/api/user-profile?profileId=${userProfileId}`
+        );
+        const userSubscription =
+          response.data.user.subscription?.current ||
+          response.data.user.subscription ||
+          "free";
+        setSubscription(userSubscription);
+      } catch (error) {
+        console.error("Error fetching subscription status:", error.message);
+        setSubscription("free");
+        toast({
+          title: "Error",
+          description:
+            "Failed to fetch subscription status. Defaulting to free.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    const fetchEvents = async () => {
+      setIsLoading(true);
+      try {
+        const response = await axios.get("/api/events");
+        setEvents(response.data);
+        const userProfile = localStorage.getItem("loggedInUser");
+        const userId = userProfile ? JSON.parse(userProfile).profileId : null;
+        if (userId) {
+          const registered = response.data
+            .filter(
+              (event) =>
+                Array.isArray(event.registeredUsers) &&
+                event.registeredUsers.some((user) => user.profileId === userId)
+            )
+            .map((event) => event._id);
+          setRegisteredEvents(registered);
+        }
+        setError(null);
+      } catch (error) {
+        setError(error.response?.data?.message || "Failed to fetch events");
+        toast({
+          title: "Error",
+          description: "Failed to fetch events. Please try again later.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchSubscriptionStatus();
+    fetchEvents();
+  }, [toast]);
+
+  // Renamed for clarity: This handles both register and cancel (toggle)
+  const handleToggleRegistration = async (eventId) => {
+    if (subscription !== "premium plus") {
       toast({
-        title: "Registration Successful!",
-        description: "You have successfully registered for this event.",
+        title: "Access Restricted",
+        description:
+          "Events are exclusive to Premium Plus users. Please upgrade your subscription.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const userProfile = localStorage.getItem("loggedInUser");
+      const userId = userProfile ? JSON.parse(userProfile).profileId : null;
+
+      if (!userId) {
+        toast({
+          title: "Error",
+          description: "You must be logged in to register for events.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const response = await axios.post(`/api/events/${eventId}/register`, {
+        userId,
+      });
+      const updatedEvent = response.data;
+
+      // FIX: Use the 'isRegistered' boolean from backend response instead of faulty profileId check
+      if (updatedEvent.isRegistered) {
+        setRegisteredEvents((prev) => [...new Set([...prev, eventId])]);
+        setOpenSuccessDialog(eventId); // Open success dialog
+        toast({
+          title: "Registration Successful!",
+          description: "You have successfully registered for this event.",
+        });
+      } else {
+        setRegisteredEvents((prev) => prev.filter((id) => id !== eventId));
+        setOpenCancelDialog(eventId); // New: Open cancel dialog
+        toast({
+          title: "Registration Cancelled",
+          description: "You have successfully cancelled your registration.",
+        });
+      }
+
+      // Optional: Update the local events state to reflect changes (e.g., currentAttendees)
+      setEvents((prevEvents) =>
+        prevEvents.map((e) =>
+          e._id === eventId ? { ...e, ...updatedEvent } : e
+        )
+      );
+    } catch (error) {
+      toast({
+        title: "Error",
+        description:
+          error.response?.data?.message ||
+          "Failed to register or unregister for the event.",
+        variant: "destructive",
       });
     }
   };
 
-  const getCategoryColor = (category: string) => {
+  // Removed handleUnregister since it's unused; the toggle handles both
+
+  const getCategoryColor = (category) => {
     switch (category) {
-      case "social": return "bg-blue-100 text-blue-800";
-      case "cultural": return "bg-purple-100 text-purple-800";
-      case "dating": return "bg-pink-100 text-pink-800";
-      case "lifestyle": return "bg-green-100 text-green-800";
-      case "adventure": return "bg-orange-100 text-orange-800";
-      default: return "bg-gray-100 text-gray-800";
+      case "social":
+        return "bg-blue-100 text-blue-800";
+      case "cultural":
+        return "bg-purple-100 text-purple-800";
+      case "dating":
+        return "bg-pink-100 text-pink-800";
+      case "lifestyle":
+        return "bg-green-100 text-green-800";
+      case "adventure":
+        return "bg-orange-100 text-orange-800";
+      default:
+        return "bg-gray-100 text-gray-800";
     }
   };
 
-  const filterEventsByCategory = (category: string) => {
-    if (category === "all") return events;
-    return events.filter(event => event.category === category);
-  };
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-white to-yellow-100">
+        <Header />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-center">
+          <p className="text-lg text-gray-600">Loading events...</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (subscription !== "premium plus") {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-white to-yellow-100">
+        <Header />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-center">
+          <div className="bg-white p-8 rounded-lg shadow-lg max-w-2xl mx-auto">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">
+              Premium Plus Feature
+            </h2>
+            <p className="text-gray-600 mb-6">
+              Access to exclusive events is only available for Premium Plus
+              members. Upgrade your account to connect with potential matches at
+              our curated events.
+            </p>
+            <Button
+              className="bg-gradient-to-r from-yellow-400 to-yellow-600 hover:from-yellow-500 hover:to-yellow-700 text-white"
+              onClick={() => {
+                navigate("/membership")
+              }}
+            >
+              Upgrade to Premium Plus
+            </Button>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-white to-yellow-100">
+        <Header />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-center">
+          <p className="text-lg text-red-600">Error: {error}</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (events.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-white to-yellow-100">
+        <Header />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-center">
+          <p className="text-lg text-gray-600">
+            No events available at the moment.
+          </p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-white to-yellow-100">
       <Header />
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="text-center mb-8">
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-800 mb-4">Matrimony Events</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-800 mb-4">
+            Matrimony Events
+          </h1>
           <p className="text-base sm:text-lg text-gray-600 max-w-2xl mx-auto">
-            Join our exclusive events to meet potential life partners in person. From cultural celebrations to adventure activities, find your perfect match while doing what you love.
+            Join our exclusive events to meet potential life partners in person.
+            From cultural celebrations to adventure activities, find your
+            perfect match while doing what you love.
           </p>
         </div>
 
@@ -130,113 +295,234 @@ const Events = () => {
             Featured Events
           </h2>
           <div className="grid sm:grid-cols-2 gap-6">
-            {events.filter(event => event.featured).map(event => (
-              <Card key={event.id} className="overflow-hidden border-yellow-200 shadow-lg">
+            {filteredEvents
+              .filter((event) => event.featured)
+              .map((event) => (
+                <Card
+                  key={event._id}
+                  className="overflow-hidden border-yellow-200 shadow-lg"
+                >
+                  <div className="relative">
+                    <img
+                      src={event.image}
+                      alt={event.title}
+                      className="w-full h-48 object-cover"
+                    />
+                    <Badge className="absolute top-4 left-4 bg-yellow-500 text-white">
+                      Featured
+                    </Badge>
+                  </div>
+                  <CardHeader>
+                    <div className="flex justify-between items-start">
+                      <CardTitle className="text-base sm:text-xl">
+                        {event.title}
+                      </CardTitle>
+                      <Badge
+                        className={`${getCategoryColor(
+                          event.category
+                        )} text-xs`}
+                      >
+                        {event.category}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-600 text-sm mb-4">
+                      {event.description}
+                    </p>
+                    <div className="space-y-1 text-sm text-gray-500 mb-4">
+                      <div className="flex items-center">
+                        <Calendar className="h-4 w-4 mr-2" />
+                        {event.date} • {event.time}
+                      </div>
+                      <div className="flex items-center">
+                        <MapPin className="h-4 w-4 mr-2" />
+                        {event.location}
+                      </div>
+                      <div className="flex items-center">
+                        <Users className="h-4 w-4 mr-2" />
+                        <Badge variant="secondary" className="font-bold">
+                          {event.currentAttendees}/{event.maxAttendees}{" "}
+                          registered
+                        </Badge>
+                      </div>
+                    </div>
+                    {/* Registration Success Dialog */}
+                    <Dialog
+                      open={openSuccessDialog === event._id}
+                      onOpenChange={() => setOpenSuccessDialog(null)}
+                    >
+                      <DialogTrigger asChild>
+                        <Button
+                          onClick={() => handleToggleRegistration(event._id)} // Updated to use toggle handler
+                          className={`w-full text-sm ${
+                            registeredEvents.includes(event._id)
+                              ? "bg-green-600 hover:bg-green-700"
+                              : "bg-gradient-to-r from-yellow-400 to-yellow-600 hover:from-yellow-500 hover:to-yellow-700"
+                          }`}
+                          aria-label={
+                            registeredEvents.includes(event._id)
+                              ? `Cancel registration for ${event.title}`
+                              : `Register for ${event.title}`
+                          }
+                        >
+                          {registeredEvents.includes(event._id)
+                            ? "Cancel"
+                            : "Register Now"}
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Registration Confirmed</DialogTitle>
+                        </DialogHeader>
+                        <p>
+                          You have successfully registered for {event.title}!
+                        </p>
+                        <Button onClick={() => setOpenSuccessDialog(null)}>
+                          Close
+                        </Button>
+                      </DialogContent>
+                    </Dialog>
+                    {/* New: Cancellation Dialog (hidden trigger, opened via state) */}
+                    <Dialog
+                      open={openCancelDialog === event._id}
+                      onOpenChange={() => setOpenCancelDialog(null)}
+                    >
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Registration Cancelled</DialogTitle>
+                        </DialogHeader>
+                        <p>
+                          You have successfully unregistered from {event.title}.
+                        </p>
+                        <Button onClick={() => setOpenCancelDialog(null)}>
+                          Close
+                        </Button>
+                      </DialogContent>
+                    </Dialog>
+                  </CardContent>
+                </Card>
+              ))}
+          </div>
+        </div>
+
+        <div className="mb-8">
+          <h2 className="text-xl sm:text-2xl font-semibold text-gray-800 mb-4">
+            All Events
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredEvents.map((event) => (
+              <Card
+                key={event._id}
+                className="overflow-hidden border-yellow-200 shadow-md hover:shadow-lg transition-shadow"
+              >
                 <div className="relative">
-                  <img src={event.image} alt={event.title} className="w-full h-48 object-cover" />
-                  <Badge className="absolute top-4 left-4 bg-yellow-500 text-white">Featured</Badge>
+                  {event.featured && (
+                    <Badge className="absolute top-2 right-2 bg-yellow-500 text-white">
+                      <Star className="h-3 w-3 mr-1" /> Featured
+                    </Badge>
+                  )}
                 </div>
-                <CardHeader>
+                <CardHeader className="pb-2">
                   <div className="flex justify-between items-start">
-                    <CardTitle className="text-base sm:text-xl">{event.title}</CardTitle>
-                    <Badge className={getCategoryColor(event.category)}>{event.category}</Badge>
+                    <CardTitle className="text-base sm:text-lg">
+                      {event.title}
+                    </CardTitle>
+                    <Badge
+                      className={`${getCategoryColor(event.category)} text-xs`}
+                    >
+                      {event.category}
+                    </Badge>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-600 text-sm mb-4">{event.description}</p>
-                  <div className="space-y-1 text-sm text-gray-500 mb-4">
+                  <p className="text-gray-600 text-sm mb-3 line-clamp-2">
+                    {event.description}
+                  </p>
+                  <div className="space-y-1 text-xs text-gray-500 mb-4">
                     <div className="flex items-center">
-                      <Calendar className="h-4 w-4 mr-2" />
-                      {event.date} • {event.time}
+                      <Calendar className="h-3 w-3 mr-1" /> {event.date}
                     </div>
                     <div className="flex items-center">
-                      <MapPin className="h-4 w-4 mr-2" />
-                      {event.location}
+                      <Clock className="h-3 w-3 mr-1" /> {event.time}
                     </div>
                     <div className="flex items-center">
-                      <Users className="h-4 w-4 mr-2" />
-                      {event.attendees}/{event.maxAttendees} registered
+                      <MapPin className="h-3 w-3 mr-1" /> {event.location}
+                    </div>
+                    <div className="flex items-center">
+                      <Users className="h-3 w-3 mr-1" />
+                      <Badge
+                        variant=""
+                        className="font-bold bg-gradient-to-r from-green-400 to-green-600 hover:from-green-500 hover:to-green-700"
+                      >
+                        {event.currentAttendees}/{event.maxAttendees} registered
+                      </Badge>
                     </div>
                   </div>
-                  <Button
-                    onClick={() => handleRegister(event.id)}
-                    className={`w-full text-sm ${registeredEvents.includes(event.id)
-                      ? "bg-green-600 hover:bg-green-700"
-                      : "bg-gradient-to-r from-yellow-400 to-yellow-600 hover:from-yellow-500 hover:to-yellow-700"
-                      }`}
+                  {/* Registration Success Dialog */}
+                  <Dialog
+                    open={openSuccessDialog === event._id}
+                    onOpenChange={() => setOpenSuccessDialog(null)}
                   >
-                    {registeredEvents.includes(event.id) ? "Registered ✓" : "Register Now"}
-                  </Button>
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="destructive"
+                        onClick={() => handleToggleRegistration(event._id)} // Updated to use toggle handler
+                        className={`w-full text-sm ${
+                          registeredEvents.includes(event._id)
+                            ? "bg-red-500 hover:bg-red-700"
+                            : "bg-gradient-to-r from-yellow-400 to-yellow-600 hover:from-yellow-500 hover:to-yellow-700"
+                        }`}
+                        aria-label={
+                          registeredEvents.includes(event._id)
+                            ? `Cancel registration for ${event.title}`
+                            : `Register for ${event.title}`
+                        }
+                      >
+                        {registeredEvents.includes(event._id)
+                          ? "Cancel"
+                          : "Register"}
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Registration Confirmed</DialogTitle>
+                      </DialogHeader>
+                      <p>You have successfully registered for {event.title}!</p>
+                      <Button
+                        onClick={() => setOpenSuccessDialog(null)}
+                        className="bg-gradient-to-r from-yellow-400 to-yellow-600 hover:from-yellow-500 hover:to-yellow-700"
+                      >
+                        Close
+                      </Button>
+                    </DialogContent>
+                  </Dialog>
+                  {/* New: Cancellation Dialog (hidden trigger, opened via state) */}
+                  <Dialog
+                    open={openCancelDialog === event._id}
+                    onOpenChange={() => setOpenCancelDialog(null)}
+                  >
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Registration Cancelled</DialogTitle>
+                      </DialogHeader>
+                      <p>
+                        You have successfully unregistered from {event.title}.
+                      </p>
+                      <Button
+                        onClick={() => setOpenCancelDialog(null)}
+                        className="bg-gradient-to-r from-yellow-400 to-yellow-600 hover:from-yellow-500 hover:to-yellow-700"
+                      >
+                        Close
+                      </Button>
+                    </DialogContent>
+                  </Dialog>
                 </CardContent>
               </Card>
             ))}
           </div>
         </div>
-
-        <Tabs defaultValue="all" className="w-full">
-          <TabsList className="grid grid-cols-3 sm:grid-cols-6 w-full text-xs sm:text-sm">
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="social">Social</TabsTrigger>
-            <TabsTrigger value="cultural">Cultural</TabsTrigger>
-            <TabsTrigger value="dating">Dating</TabsTrigger>
-            <TabsTrigger value="lifestyle">Lifestyle</TabsTrigger>
-            <TabsTrigger value="adventure">Adventure</TabsTrigger>
-          </TabsList>
-
-          {["all", "social", "cultural", "dating", "lifestyle", "adventure"].map(category => (
-            <TabsContent key={category} value={category} className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filterEventsByCategory(category).map(event => (
-                  <Card key={event.id} className="overflow-hidden border-yellow-200 shadow-md hover:shadow-lg transition-shadow">
-                    <div className="relative">
-                      <img src={event.image} alt={event.title} className="w-full h-40 object-cover" />
-                      {event.featured && (
-                        <Badge className="absolute top-2 right-2 bg-yellow-500 text-white">
-                          <Star className="h-3 w-3 mr-1" /> Featured
-                        </Badge>
-                      )}
-                    </div>
-                    <CardHeader className="pb-2">
-                      <div className="flex justify-between items-start">
-                        <CardTitle className="text-base sm:text-lg">{event.title}</CardTitle>
-                        <Badge className={getCategoryColor(event.category)}>{event.category}</Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-gray-600 text-sm mb-3 line-clamp-2">{event.description}</p>
-                      <div className="space-y-1 text-xs text-gray-500 mb-4">
-                        <div className="flex items-center">
-                          <Calendar className="h-3 w-3 mr-1" /> {event.date}
-                        </div>
-                        <div className="flex items-center">
-                          <Clock className="h-3 w-3 mr-1" /> {event.time}
-                        </div>
-                        <div className="flex items-center">
-                          <MapPin className="h-3 w-3 mr-1" /> {event.location}
-                        </div>
-                        <div className="flex items-center">
-                          <Users className="h-3 w-3 mr-1" /> {event.attendees}/{event.maxAttendees}
-                        </div>
-                      </div>
-                      <Button
-                        onClick={() => handleRegister(event.id)}
-                        size="sm"
-                        className={`w-full text-xs ${registeredEvents.includes(event.id)
-                          ? "bg-green-600 hover:bg-green-700"
-                          : "bg-gradient-to-r from-yellow-400 to-yellow-600 hover:from-yellow-500 hover:to-yellow-700"
-                          }`}
-                      >
-                        {registeredEvents.includes(event.id) ? "Registered ✓" : "Register"}
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </TabsContent>
-          ))}
-        </Tabs>
       </div>
-
       <Footer />
     </div>
   );
