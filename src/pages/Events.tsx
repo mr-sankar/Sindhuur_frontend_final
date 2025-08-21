@@ -31,11 +31,11 @@ const Events = () => {
 
   const navigate = useNavigate();
 
-  axios.defaults.baseURL = "http://localhost:5000";
+  axios.defaults.baseURL =  import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
   const fetchEventDetails = async (eventId) => {
     try {
-      const res = await axios.get(`/api/events/${eventId}/details`);
+      const res = await axios.get(`/api/events/${eventId}/details`);  
       setSelectedEvent(res.data);
     } catch {
       toast({

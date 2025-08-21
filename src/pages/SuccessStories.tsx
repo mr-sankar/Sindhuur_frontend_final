@@ -8,7 +8,7 @@ import { Heart, Calendar, MapPin, Quote, Loader2, X, ChevronLeft, ChevronRight }
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
-const API_BASE_URL = "http://localhost:5000";
+const API_BASE_URL =import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";  
 
 const SuccessStories = () => {
   const [loading, setLoading] = useState(false);

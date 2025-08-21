@@ -58,7 +58,7 @@ const Notifications = () => {
         console.log(userId);
 
         const res = await axios.get(
-          `http://localhost:5000/api/admin/notifications/${profileData.profileId}`
+          `${BASE_URL}/api/admin/notifications/${profileData.profileId}`
         );
         setNotifications(res.data);
         console.log(res.data);
@@ -78,7 +78,7 @@ const Notifications = () => {
   const markAsRead = async (toProfileId: string, notificationId: string) => {
     try {
       await axios.put(
-        `http://localhost:5000/api/admin/notifications/${toProfileId}/${notificationId}/read`
+        `${BASE_URL}/api/admin/notifications/${toProfileId}/${notificationId}/read`
       );
 
       // Update UI instantly without waiting for refresh
@@ -102,7 +102,7 @@ const Notifications = () => {
       const profileData = JSON.parse(profileDataStr);
 
       const res = await axios.put(
-        `http://localhost:5000/api/admin/notifications/${profileData.profileId}/read-all`
+        `${BASE_URL}/api/admin/notifications/${profileData.profileId}/read-all`
       );
 
       console.log("Backend response:", res.data);
@@ -123,7 +123,7 @@ const Notifications = () => {
 
     try {
       await axios.delete(
-        `http://localhost:5000/api/admin/notifications/${notificationId}/${toProfileId}`
+        `${BASE_URL}/api/admin/notifications/${notificationId}/${toProfileId}`
       );
 
       // Remove notification from state on successful delete

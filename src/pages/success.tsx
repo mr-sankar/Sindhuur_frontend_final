@@ -3,6 +3,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
 function Success() {
   const [stories, setStories] = useState([]);
@@ -11,7 +12,7 @@ function Success() {
   useEffect(() => {
     const fetchStories = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/api/stories');
+        const response = await axios.get(`${API_BASE_URL}/api/stories`);
         setStories(response.data);
         if (response.data.length === 0) {
           toast.warning('No success stories found.');
@@ -27,7 +28,7 @@ function Success() {
   const handleDeleteStory = async (id) => {
     if (!window.confirm('Are you sure you want to delete this story?')) return;
     try {
-      await axios.delete(`http://localhost:5000/api/stories/${id}`);
+      await axios.delete(`${API_BASE_URL}/api/stories/${id}`);
       setStories(stories.filter((story) => story._id !== id));
       toast.success('Story deleted successfully!');
     } catch (error) {
